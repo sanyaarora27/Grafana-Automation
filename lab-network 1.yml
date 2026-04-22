@@ -1,0 +1,99 @@
+#AWSTemplateFormatVersion: version date
+#Description: String
+#Metadata: template metadata
+#Parameters: set of parameters
+#Rules: set of rules
+#Mappings: set of mappings
+#Conditions: set of conditions
+#Transform: set of transforms
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:
+  Network Infrastructure - provisioning VPC, Public Subnet, Internet gateway and Route table required by Grafana application stack. 
+
+
+Resources:
+#Description: Creates a VPC (10.0.0.0/20), a public subnet (10.0.0.0/24), 
+#an Internet Gateway, and a Route Table wiring them together.#
+#------------------VPC-------------------#
+  LabVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/20
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: Lab-VPC
+  
+
+  #--------------Public Subnet-----------#
+  LabPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LabVPC #replace id#
+      CidrBlock: 10.0.0.0/24
+
+      #MapPublicIp On launch : Indicates whether instances launched in this subnet receive a public IPv4 address. The default value is false#
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ""
+      Tags:
+        - Key: Name
+          Value: lab-public-subnet
+
+#----------------Internet Gateway----------------#
+  LabInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: lab-igw
+  
+  LabVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref LabVPC #replace id#
+      InternetGatewayId: !Ref LabInternetGateway #replace id#
+
+
+#-----------------ROUTE TABLE -------------#
+  LabPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref LabVPC #replace id#
+      Tags:
+        - Key: Name
+          Value: lab-public-rt
+
+  LabPublicRoute: #(Default Route)
+    Type: AWS::EC2::Route
+    DependsOn: LabVPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref LabPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref LabInternetGateway
+
+  LabSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref LabPublicSubnet
+      RouteTableId: !Ref LabPublicRouteTable
+
+
+#Outputs, will be used in application.yaml as well#
+
+Outputs:
+
+  LabVpcId:
+    Description: ID of the Lab VPC
+    Value: !Ref LabVPC #replace id#
+    Export:
+      Name: LabVpcId
+  
+  LabPublicSubnetId:
+    Description: ID of the Lab Public Subnet
+    Value: !Ref LabPublicSubnet #replace id#
+    Export:
+      Name: LabPublicSubnetId
